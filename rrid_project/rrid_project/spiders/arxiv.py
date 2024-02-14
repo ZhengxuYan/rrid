@@ -4,13 +4,27 @@ from datetime import datetime
 import scrapy
 from scrapy import Request
 import urllib.parse
+import csv
 
 class ArxivSpider(scrapy.Spider):
     name = 'arxiv'
 
     sleep_time = 5
+    max_articles = 100  # Maximum number of articles you want to fetch
+    articles_fetched = 0  # Counter to keep track of fetched articles
 
-    def build_query_url(self):
+    def __init__(self, *args, **kwargs):
+        super(ArxivSpider, self).__init__(*args, **kwargs)
+        # Open the file in append mode with newline='' to avoid blank lines in Windows
+        self.file = open('results/arxiv_results.csv', 'w', newline='', encoding='utf-8')
+        self.writer = csv.writer(self.file)
+        # Write the header row if the file is new/empty
+        self.writer.writerow(['Title', 'Publication Date', 'Authors', 'Link', 'Abstract'])
+    
+    def close_spider(self, spider):
+        self.file.close()
+
+    def build_query_url(self, start_date="2023-01-01", end_date="2023-12-31", size=50):
         query_dict = {
             "advanced": "",
             "terms-0-operator": "AND",
@@ -18,13 +32,12 @@ class ArxivSpider(scrapy.Spider):
             "terms-0-field": "all",
             "classification-physics_archives": "all",
             "classification-include_cross_list": "include",
-            "date-filter_by": "all_dates",
-            "date-year": "",
-            "date-from_date": "",
-            "date-to_date": "",
+            "date-filter_by": "date_range",
+            "date-from_date": start_date,
+            "date-to_date": end_date,
             "date-date_type": "submitted_date",
             "abstracts": "show",
-            "size": "50",
+            "size": str(size),  # Control how many results per page
             "order": "-announced_date_first",
         }
         return 'https://arxiv.org/search/advanced?' + urllib.parse.urlencode(query_dict)
@@ -53,14 +66,25 @@ class ArxivSpider(scrapy.Spider):
         abstracts = [h.xpath('string(span[@class="abstract-full has-text-grey-dark mathjax"])').get() for h in response.xpath('//body//ol[@class="breathe-horizontal"]/li[@class="arxiv-result"]/p[@class="abstract mathjax"]')]
         abstracts = [re.search(r'([^\n\s].*)\n', abstract).group(1) for abstract in abstracts]
 
+        # for paper_num in range(0, len(titles)):
+        #     print("Title:", titles[paper_num])
+        #     print("Publication Date:", publication_dates[paper_num])
+        #     print("Authors:", [a['Name'] for a in authors[paper_num]])
+        #     print("Link:", "https://arxiv.org/abs/" + arxiv_ids[paper_num])
+        #     print("Abstract:", abstracts[paper_num])
+        #     print("------------------------------------------------------")
         for paper_num in range(0, len(titles)):
-            print("Title:", titles[paper_num])
-            print("Publication Date:", publication_dates[paper_num])
-            print("Authors:", [a['Name'] for a in authors[paper_num]])
-            print("Link:", "https://arxiv.org/abs/" + arxiv_ids[paper_num])
-            print("Abstract:", abstracts[paper_num])
-            print("------------------------------------------------------")
+            authors_list = [a['Name'] for a in authors[paper_num]]  # Convert authors to a comma-separated string
+            # Write each paper's details as a row in the CSV file
+            self.writer.writerow([titles[paper_num], publication_dates[paper_num], ', '.join(authors_list), "https://arxiv.org/abs/" + arxiv_ids[paper_num], abstracts[paper_num]])
+        
+        self.articles_fetched += len(titles)  # Update the counter with the number of articles fetched in this response
 
+        # Logic to stop fetching more pages if the max_articles limit is reached
+        if self.articles_fetched >= self.max_articles:
+            print(f"Reached the limit of {self.max_articles} articles.")
+            return  # Stop the spider
+        
         print("Sleeping for {} seconds".format(self.sleep_time))
         time.sleep(self.sleep_time)
 
