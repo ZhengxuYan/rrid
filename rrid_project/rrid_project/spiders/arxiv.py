@@ -24,7 +24,7 @@ class ArxivSpider(scrapy.Spider):
     def close_spider(self, spider):
         self.file.close()
 
-    def build_query_url(self, start_date="2023-01-01", end_date="2023-12-31", size=50):
+    def build_query_url(self, start_date="2024-01-01", end_date="2024-2-16", size=50):
         query_dict = {
             "advanced": "",
             "terms-0-operator": "AND",

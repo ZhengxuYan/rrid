@@ -6,7 +6,7 @@ class BiorxivSpider(scrapy.Spider):
     name = 'biorxiv'
     allowed_domains = ['api.biorxiv.org']
 
-    def __init__(self, server='biorxiv', start_date="2023-01-01", end_date="2023-12-31", *args, **kwargs):
+    def __init__(self, server='biorxiv', start_date="2024-01-01", end_date="2024-02-15", *args, **kwargs):
         super(BiorxivSpider, self).__init__(*args, **kwargs)
         self.server = server
         self.start_date = start_date
