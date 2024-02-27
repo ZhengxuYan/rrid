@@ -10,12 +10,12 @@ For additional Git guides and best practices, refer to [Git Guides](https://gith
 
 ## Collaboration Workflow
 
-### Moving to the Main Branch
+### Moving to the master Branch
 
-To switch to the main branch:
+To switch to the master branch:
 
 ```bash
-git checkout main
+git checkout master
 ```
 
 ### Rebasing
@@ -44,12 +44,12 @@ git commit -m "your message"
 git push origin my-feature-branch
 ```
 
-### Rebasing onto Main
+### Rebasing onto master
 
-Before merging, rebase your branch onto main:
+Before merging, rebase your branch onto master:
 
 ```bash
-git rebase main
+git rebase master
 ```
 
 ### Submitting Pull Requests
