@@ -108,7 +108,7 @@ class NBERSpider(scrapy.Spider):
         if pub_date < datetime(2024, 1, 1):
             self.older_publications_count += 1
             # Stop the spider after encountering 10 (subject to change) of older publications
-            if self.older_publications_count > 200:  # Adjust this threshold as needed
+            if self.older_publications_count > 500:  # Adjust this threshold as needed
                 self.crawler.engine.close_spider(self, 'Encountered multiple publications before 2024, stopping spider.')
                 return
         else:
