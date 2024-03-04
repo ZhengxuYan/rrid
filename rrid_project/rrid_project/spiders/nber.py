@@ -22,7 +22,8 @@ class NBERSpider(scrapy.Spider):
         self.writer = csv.writer(self.file)
         # Write the header row if the file is new/empty
         self.writer.writerow(['Title', 'Publication Date', 'Authors', 'Link', 'DOI', 'Abstract'])
-    
+        self.older_publications_count = 0  # Add a counter for publications before 2024
+
     def close_spider(self, spider):
         self.file.close()
     
@@ -105,11 +106,17 @@ class NBERSpider(scrapy.Spider):
 
         # stop the spider if the publication date is before 2024
         if pub_date < datetime(2024, 1, 1):
-            # Use close_spider to stop the spider if the publication date is before 2024
-            self.crawler.engine.close_spider(self, 'Reached publication date before 2024')
-            return
-    
-        self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
+            self.older_publications_count += 1
+            # Stop the spider after encountering 10 (subject to change) of older publications
+            if self.older_publications_count > 200:  # Adjust this threshold as needed
+                self.crawler.engine.close_spider(self, 'Encountered multiple publications before 2024, stopping spider.')
+                return
+        else:
+            # Reset counter if a 2024 publication is found
+            self.older_publications_count = 0  
+            # write to csv
+            self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
+
 
         # # Check if "infectious disease" is in title or abstract
         # if 'infectious disease' in title.lower() or 'infectious disease' in abstract.lower():
