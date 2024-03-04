@@ -10,7 +10,7 @@ class ArxivSpider(scrapy.Spider):
     name = 'arxiv'
 
     sleep_time = 5
-    max_articles = 100  # Maximum number of articles you want to fetch
+    max_articles = 400  # Maximum number of articles you want to fetch
     articles_fetched = 0  # Counter to keep track of fetched articles
 
     def __init__(self, *args, **kwargs):
@@ -19,28 +19,29 @@ class ArxivSpider(scrapy.Spider):
         self.file = open('results/arxiv_results.csv', 'w', newline='', encoding='utf-8')
         self.writer = csv.writer(self.file)
         # Write the header row if the file is new/empty
-        self.writer.writerow(['Title', 'Publication Date', 'Authors', 'Link', 'Abstract'])
+        self.writer.writerow(['Link/DOI', 'Publication Date', 'Title', 'Authors', 'Abstract'])
     
     def close_spider(self, spider):
         self.file.close()
 
-    def build_query_url(self, start_date="2024-01-01", end_date="2024-2-16", size=50):
-        query_dict = {
+    def build_query_url(self, start_date="2024-02-26", end_date="2024-03-02", size=200):
+        query_params_dict = {
             "advanced": "",
             "terms-0-operator": "AND",
-            "terms-0-term": "infectious disease",
-            "terms-0-field": "all",
+            "terms-0-term": "",
+            "terms-0-field": "title",
             "classification-physics_archives": "all",
             "classification-include_cross_list": "include",
+            "date-year": "",
             "date-filter_by": "date_range",
             "date-from_date": start_date,
             "date-to_date": end_date,
             "date-date_type": "submitted_date",
             "abstracts": "show",
-            "size": str(size),  # Control how many results per page
-            "order": "-announced_date_first",
+            "size": "200",
+            "order": "-announced_date_first"
         }
-        return 'https://arxiv.org/search/advanced?' + urllib.parse.urlencode(query_dict)
+        return 'https://arxiv.org/search/advanced?' + urllib.parse.urlencode(query_params_dict)
 
     def start_requests(self):
         yield Request(
@@ -54,7 +55,7 @@ class ArxivSpider(scrapy.Spider):
         titles = [re.search(r'([^\n\s].*)\n', title).group(1) for title in titles]
 
         publication_dates = [h2.xpath('string(p[@class="is-size-7"])').get() for h2 in response.xpath('//body//ol/li[@class="arxiv-result"]')]
-        publication_dates = [datetime.strptime(re.search(r'^Submitted\s(.*?);', publication_date).group(1), '%d %B, %Y') for publication_date in publication_dates]
+        publication_dates = [datetime.strptime(re.search(r'^Submitted\s(.*?);', publication_date).group(1), '%d %B, %Y').date().isoformat() for publication_date in publication_dates]
 
         authors = []
         for a in response.xpath('//body//ol[@class="breathe-horizontal"]/li[@class="arxiv-result"]/p[@class="authors"]'):
@@ -76,7 +77,7 @@ class ArxivSpider(scrapy.Spider):
         for paper_num in range(0, len(titles)):
             authors_list = [a['Name'] for a in authors[paper_num]]  # Convert authors to a comma-separated string
             # Write each paper's details as a row in the CSV file
-            self.writer.writerow([titles[paper_num], publication_dates[paper_num], ', '.join(authors_list), "https://arxiv.org/abs/" + arxiv_ids[paper_num], abstracts[paper_num]])
+            self.writer.writerow(["https://arxiv.org/abs/" + arxiv_ids[paper_num], publication_dates[paper_num], titles[paper_num], authors_list, abstracts[paper_num]])
         
         self.articles_fetched += len(titles)  # Update the counter with the number of articles fetched in this response
 
