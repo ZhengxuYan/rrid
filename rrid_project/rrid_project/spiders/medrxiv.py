@@ -3,12 +3,12 @@ import json
 import csv
 import logging
 
-class BiorxivSpider(scrapy.Spider):
-    name = 'biorxiv'
+class MedrxivSpider(scrapy.Spider):
+    name = 'medrxiv'
     allowed_domains = ['api.biorxiv.org']
 
-    def __init__(self, server='biorxiv', start_date="2024-01-01", end_date="2024-03-03", *args, **kwargs):
-        super(BiorxivSpider, self).__init__(*args, **kwargs)
+    def __init__(self, server='medrxiv', start_date="2024-01-01", end_date="2024-03-03", *args, **kwargs):
+        super(MedrxivSpider, self).__init__(*args, **kwargs)
         self.logger.setLevel(logging.DEBUG)
         self.server = server
         # join the start and end date with a / to form the date range
@@ -28,11 +28,10 @@ class BiorxivSpider(scrapy.Spider):
         articles = data.get('collection', [])
 
         for article in articles:
-            # biorxiv has closed their epidemiology category!!!
-            # article_category = article.get('preprint_category').lower()
+            article_category = article.get('preprint_category').lower()
             # self.logger.info(f'Article category: {article_category}')
-            # if article_category != 'epidemiology':
-            #     continue  # Skip articles not in the specified category
+            if article_category != 'infectious diseases':
+                continue  # Skip articles not in the specified category
 
             authors = article.get('preprint_authors', [])
             # Convert the list directly to a string representation
