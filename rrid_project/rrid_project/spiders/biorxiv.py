@@ -1,66 +1,72 @@
 import scrapy
 import json
 import csv
+import logging
 
 class BiorxivSpider(scrapy.Spider):
     name = 'biorxiv'
     allowed_domains = ['api.biorxiv.org']
 
-    def __init__(self, server='biorxiv', start_date="2024-01-01", end_date="2024-02-15", *args, **kwargs):
+    def __init__(self, server='biorxiv', start_date="2024-01-01", end_date="2024-03-03", *args, **kwargs):
         super(BiorxivSpider, self).__init__(*args, **kwargs)
+        self.logger.setLevel(logging.DEBUG)
         self.server = server
-        self.start_date = start_date
-        self.end_date = end_date
+        # join the start and end date with a / to form the date range
+        self.interval = f'{start_date}/{end_date}'
         self.cursor = 0
         self.file = open(f'results/{server}_results.csv', 'w', newline='', encoding='utf-8')
         self.writer = csv.writer(self.file)
-        self.writer.writerow(['biorxiv_doi', 'published_doi', 'published_journal', 'preprint_platform', 'preprint_title', 'preprint_authors', 'preprint_category', 'preprint_date', 'published_date', 'preprint_abstract', 'preprint_author_corresponding', 'preprint_author_corresponding_institution'])
+        self.writer.writerow(['Link/DOI', 'Publication Date', 'Title', 'Authors', 'Abstract'])
 
     def start_requests(self):
-        url = f'https://api.biorxiv.org/pubs/{self.server}/{self.start_date}/{self.end_date}/{self.cursor}'
+        url = f'https://api.biorxiv.org/pubs/{self.server}/{self.interval}/{self.cursor}'
         yield scrapy.Request(url=url, method='GET', callback=self.parse)
     
     def parse(self, response):
         data = json.loads(response.text)
+        # self.logger.debug(json.dumps(data, indent=2))
         articles = data.get('collection', [])
 
         for article in articles:
-            title = article.get('preprint_title', '').lower()
-            abstract = article.get('preprint_abstract', '').lower()
+            # biorxiv has closed their epidemiology category!!!
+            # article_category = article.get('preprint_category').lower()
+            # self.logger.info(f'Article category: {article_category}')
+            # if article_category != 'epidemiology':
+            #     continue  # Skip articles not in the specified category
+
+            authors = article.get('preprint_authors', [])
+            # Convert the list directly to a string representation
+            authors_str = str([authors])
             
-            # Keywords related to infectious diseases
-            keywords = ['infectious disease', 'virus', 'covid-19', 'sars-cov-2', 'pandemic', 'epidemic']
-            if any(keyword in title or keyword in abstract for keyword in keywords):
-                # This article is related to infectious diseases, process it further
-                preprint_authors = article.get('preprint_authors', 'Not available')
-            
+            # Remove or replace new line characters in abstract and title
+            abstract = article.get('preprint_abstract', '').replace('\n', ' ').lower()
+            title = article.get('preprint_title', '').replace('\n', ' ').lower()
+
+            if article.get('preprint_doi') and article.get('preprint_title'):
+                # filter base on category
+                # make doi into a link
+                doi = "https://doi.org/" + article.get('preprint_doi')
                 self.writer.writerow([
-                    article.get('biorxiv_doi', ''),
-                    article.get('published_doi', ''),
-                    article.get('published_journal', ''),
-                    article.get('preprint_platform', ''),
-                    article.get('preprint_title', ''),
-                    preprint_authors,  # Directly use the string
-                    article.get('preprint_category', ''),
-                    article.get('preprint_date', ''),
+                    doi,
                     article.get('published_date', ''),
-                    article.get('preprint_abstract', ''),
-                    article.get('preprint_author_corresponding', ''),
-                    article.get('preprint_author_corresponding_institution', '')
+                    title,
+                    authors_str,
+                    abstract
                 ])
-
-
-
+        
+        # Handling pagination
         messages = data.get('messages', [])
+        # self.logger.debug(json.dumps(messages, indent=2))
         if messages:
-            message = messages[0]  # Assuming there's always at least one message with the cursor info
-            next_cursor = message.get('cursor')
-            total = message.get('count')
+            message = messages[0]
+            count = message.get('count', 0)
+            next_cursor = message.get('cursor', None)
+            # self.logger.info(f'Next cursor: {next_cursor}')
 
-            if next_cursor is not None and total > next_cursor:
-                next_url = f'https://api.biorxiv.org/pubs/{self.server}/{self.start_date}/{self.end_date}/{next_cursor}'
-                yield response.follow(next_url, self.parse)
-
+            if next_cursor is not None:
+                self.cursor = int(next_cursor) + count  # Ensure cursor is updated based on API response
+                next_url = f'https://api.biorxiv.org/pubs/{self.server}/{self.interval}/{self.cursor}'
+                yield scrapy.Request(url=next_url, callback=self.parse)
 
     def close_spider(self, spider):
         self.file.close()
