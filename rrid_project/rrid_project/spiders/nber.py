@@ -102,14 +102,22 @@ class NBERSpider(scrapy.Spider):
             'Abstract': abstract,
             'Publication_Date': pub_date,
         }
-        
-        # Check if "infectious disease" is in title or abstract
-        if 'infectious disease' in title.lower() or 'infectious disease' in abstract.lower():
-            # Existing code to process and save the paper
-            self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
-        else:
-        # Skip this paper as it's not related to infectious disease
-            pass
+
+        # stop the spider if the publication date is before 2024
+        if pub_date < datetime(2024, 1, 1):
+            # Use close_spider to stop the spider if the publication date is before 2024
+            self.crawler.engine.close_spider(self, 'Reached publication date before 2024')
+            return
+    
+        self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
+
+        # # Check if "infectious disease" is in title or abstract
+        # if 'infectious disease' in title.lower() or 'infectious disease' in abstract.lower():
+        #     # Existing code to process and save the paper
+        #     self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
+        # else:
+        # # Skip this paper as it's not related to infectious disease
+        #     pass
 
 
     def handle_pdf(self, response):
