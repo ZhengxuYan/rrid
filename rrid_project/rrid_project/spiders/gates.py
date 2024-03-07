@@ -13,15 +13,14 @@ class GatesSpider(scrapy.Spider):
         for articles in response.css('div.article-browse-wrapper'):
             article_link = articles.css('a.article-link').attrib['href']
             data = {
+                'link': article_link,
+                'publication_date': [text.split('PUBLISHED ')[1].strip() for text in response.css('div.article-bottom-bar::text').getall() if 'PUBLISHED ' in text][-1],
                 'title': articles.css('span.article-title::text').get(),
                 'authors': articles.css('span.js-article-author::text').getall(),
-                'peer_reviewers': [name.strip() for names_group in articles.css('span.field-names::text').getall() 
-                                   for name in names_group.replace(' and', ';').split(';') if name.strip()],
                 'article_funders': articles.css('span.article-funder-brand::text').getall(), 
-                'article_type': articles.css('span.article-type-text::text').get().strip(),
                 'downloads': articles.css('span.article-metrics-wrapper::attr(data-downloads)').get(),
                 'views': articles.css('span.article-metrics-wrapper::attr(data-views)').get(),
-                'link': article_link,
+                
             }
             yield scrapy.Request(url=article_link, callback=self.get_abstract, meta={'data': data})
         
