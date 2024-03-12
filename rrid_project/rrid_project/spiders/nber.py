@@ -1,13 +1,17 @@
 import json
 import re
 from datetime import datetime
+from datetime import timedelta
 
 from pymongo import HASHED
 from scrapy import Request
 import scrapy
 import csv
 
-# from ._base import BaseSpider
+# get today's date in the format YYYY-MM-DD
+today = datetime.now().date().isoformat()
+# get the date 1 month ago in the format YYYY-MM-DD
+one_month_ago = (datetime.now() - timedelta(days=30)).date().isoformat()
 
 
 class NBERSpider(scrapy.Spider):
@@ -15,16 +19,18 @@ class NBERSpider(scrapy.Spider):
     allowed_domains = ['nber.org']
 
     # Creating csv file for nber
-    def __init__(self, *args, **kwargs):
+    def __init__(self, start_date=one_month_ago, end_date=today, *args, **kwargs):
         super(NBERSpider, self).__init__(*args, **kwargs)
         # Open the file in append mode with newline='' to avoid blank lines in Windows
         self.file = open('results/nber_results.csv', 'w', newline='', encoding='utf-8')
         self.writer = csv.writer(self.file)
         # Write the header row if the file is new/empty
-        self.writer.writerow(['Title', 'Publication Date', 'Authors', 'Link', 'DOI', 'Abstract'])
+        self.writer.writerow(['Link/DOI', 'Publication Date', 'Title', 'Authors', 'Abstract'])
+        self.start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        self.end_date = datetime.strptime(end_date, '%Y-%m-%d')
         self.older_publications_count = 0  # Add a counter for publications before 2024
 
-    def close_spider(self, spider):
+    def close_spider(self):
         self.file.close()
     
     # DB specs
@@ -93,48 +99,12 @@ class NBERSpider(scrapy.Spider):
             '//meta[@name="citation_publication_date"]/@content').extract_first().strip()
         pub_date = datetime.strptime(pub_date, '%Y/%m/%d')
 
-        article_number = response.meta['article_number']
-        data = {
-            'NBER_Article_Number': article_number,
-            'Doi': doi,
-            'Link': response.request.url,
-            'Authors': authors,
-            'Title': title,
-            'Abstract': abstract,
-            'Publication_Date': pub_date,
-        }
-
-        # stop the spider if the publication date is before 2024
-        if pub_date < datetime(2024, 1, 1):
-            self.older_publications_count += 1
-            # Stop the spider after encountering 10 (subject to change) of older publications
-            if self.older_publications_count > 500:  # Adjust this threshold as needed
-                self.crawler.engine.close_spider(self, 'Encountered multiple publications before 2024, stopping spider.')
-                return
+        if self.start_date <= pub_date <= self.end_date:
+            # Reset the counter for older publications if within date range
+            self.older_publications_count = 0
+            self.writer.writerow([doi, pub_date, title, ', '.join(authors), abstract])
         else:
-            # Reset counter if a 2024 publication is found
-            self.older_publications_count = 0  
-            # write to csv
-            self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
-
-
-        # # Check if "infectious disease" is in title or abstract
-        # if 'infectious disease' in title.lower() or 'infectious disease' in abstract.lower():
-        #     # Existing code to process and save the paper
-        #     self.writer.writerow([title, pub_date, ', '.join(authors), response.request.url, doi, abstract])
-        # else:
-        # # Skip this paper as it's not related to infectious disease
-        #     pass
-
-
-    def handle_pdf(self, response):
-        data = response.meta['Data']
-
-        pdf_id = self.save_pdf(
-            response.body,
-            pdf_fn=f'NBER-{data["NBER_Article_Number"]}.pdf',
-            pdf_link=response.request.url,
-            fs='Scraper_nber_org_fs')
-
-        data['PDF_gridfs_id'] = pdf_id
-        self.save_article(data, to='Scraper_nber_org')
+            # Increment the counter for older publications and possibly stop the spider
+            self.older_publications_count += 1
+            if self.older_publications_count > 500:  # Adjust this threshold as needed
+                self.crawler.engine.close_spider(self, 'Encountered multiple publications outside the specified date range, stopping spider.')
