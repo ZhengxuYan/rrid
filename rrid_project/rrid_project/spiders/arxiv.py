@@ -5,13 +5,20 @@ import scrapy
 from scrapy import Request
 import urllib.parse
 import csv
+from datetime import datetime
+from datetime import timedelta
 
 class ArxivSpider(scrapy.Spider):
     name = 'arxiv'
 
     sleep_time = 5
-    max_articles = 400  # Maximum number of articles you want to fetch
+    max_articles = 2000  # Maximum number of articles you want to fetch
     articles_fetched = 0  # Counter to keep track of fetched articles
+
+    # get today's date in the format YYYY-MM-DD
+    today = datetime.now().date().isoformat()
+    # get the date 1 month ago in the format YYYY-MM-DD
+    five_days_ago = (datetime.now() - timedelta(days=7)).date().isoformat()
 
     def __init__(self, *args, **kwargs):
         super(ArxivSpider, self).__init__(*args, **kwargs)
@@ -24,7 +31,7 @@ class ArxivSpider(scrapy.Spider):
     def close_spider(self, spider):
         self.file.close()
 
-    def build_query_url(self, start_date="2024-02-26", end_date="2024-03-02", size=200):
+    def build_query_url(self, start_date=five_days_ago, end_date=today, size=200):
         query_params_dict = {
             "advanced": "",
             "terms-0-operator": "AND",

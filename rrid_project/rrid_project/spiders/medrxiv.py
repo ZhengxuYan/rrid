@@ -2,12 +2,18 @@ import scrapy
 import json
 import csv
 import logging
+from datetime import datetime
+from datetime import timedelta
 
 class MedrxivSpider(scrapy.Spider):
     name = 'medrxiv'
     allowed_domains = ['api.biorxiv.org']
+    # get today's date in the format YYYY-MM-DD
+    today = datetime.now().date().isoformat()
+    # get the date 1 month ago in the format YYYY-MM-DD
+    three_month_ago = (datetime.now() - timedelta(days=90)).date().isoformat()
 
-    def __init__(self, server='medrxiv', start_date="2024-01-01", end_date="2024-03-03", *args, **kwargs):
+    def __init__(self, server='medrxiv', start_date=three_month_ago, end_date=today, *args, **kwargs):
         super(MedrxivSpider, self).__init__(*args, **kwargs)
         self.logger.setLevel(logging.DEBUG)
         self.server = server

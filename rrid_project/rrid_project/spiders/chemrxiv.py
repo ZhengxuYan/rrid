@@ -12,7 +12,6 @@ class ChemrxivSpider(scrapy.Spider):
     today = datetime.now().date().isoformat()
     # get the date 1 month ago in the format YYYY-MM-DD
     one_month_ago = (datetime.now() - timedelta(days=30)).date().isoformat()
-    print(one_month_ago)
 
     def __init__(self, server='chemrxiv', start_date=one_month_ago, end_date=today, *args, **kwargs):
         super(ChemrxivSpider, self).__init__(*args, **kwargs)
@@ -48,16 +47,12 @@ class ChemrxivSpider(scrapy.Spider):
                 abstract = article.get('abstract', '').replace('\n', ' ').lower()
                 title = article.get('title', '').replace('\n', ' ').lower()
 
-                # date only needs year-month-day
-                date = article.get('date')
-
                 if article.get('doi') and article.get('title'):
-                    # filter base on category
                     # make doi into a link
                     doi = "https://doi.org/" + article.get('doi')
                     self.writer.writerow([
                         doi,
-                        article.get('publishedDate', ''),
+                        article.get('publishedDate', '').split('T')[0],
                         title,
                         authors_str,
                         abstract
