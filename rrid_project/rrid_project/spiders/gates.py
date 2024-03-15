@@ -10,7 +10,7 @@ class GatesSpider(scrapy.Spider):
 
     custom_settings = {
         'FEED_FORMAT': 'csv',
-        'FEED_URI': 'gates.csv',
+        'FEED_URI': 'results/gates_results.csv',
     }
 
     def parse(self, response):
