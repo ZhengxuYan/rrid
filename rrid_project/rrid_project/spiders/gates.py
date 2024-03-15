@@ -14,7 +14,7 @@ class GatesSpider(scrapy.Spider):
     }
 
     def parse(self, response):
-        num_days = 90
+        num_days = 180
         for articles in response.css('div.article-browse-wrapper'):
             publication_date_str = articles.css('div.article-bottom-bar::text').re_first('PUBLISHED (.+)')
             publication_date = datetime.strptime(publication_date_str, '%d %b %Y')
